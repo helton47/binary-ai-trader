@@ -1,19 +1,3 @@
-
-Isso
-Perfeito! Vamos transformar o painel em um sistema que analisa os candles e apresenta CALL, PUT ou AGUARDAR.
-
-Antes, precisamos conferir o arquivo que recebe os dados da Twelve Data. Não vamos mexer no código ainda.
-
-Próximo passo:
-
-Volte à página principal do repositório, onde aparecem os arquivos.
-
-Toque em server.js.
-
-Quando o código abrir, copie e cole aqui, como você fez com o index.html.
-
-Assim vou verificar como os dados chegam ao aplicativo e preparar o próximo passo. Os sinais precisarão ser testados antes de qualquer uso com dinheiro real; não há garantia de acerto ou lucro.
-
 const express = require("express");
 const path = require("path");
 const app = express();
