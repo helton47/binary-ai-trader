@@ -99,6 +99,13 @@ text-align:right;padding:6px;border-bottom:1px solid #183653
 margin-top:12px;background:#241d11;border:1px solid #72541f;
 color:#e8cb8d;padding:11px;border-radius:10px;font-size:12px
 }
+.history-head{
+display:flex;justify-content:space-between;
+align-items:center;gap:10px;flex-wrap:wrap
+}
+.history-signal.call{color:#35d07f;font-weight:bold}
+.history-signal.put{color:#ff5b67;font-weight:bold}
+.history-signal.wait{color:#ffca65;font-weight:bold}
 @media(max-width:760px){
 .grid{grid-template-columns:1fr}
 .wrap{padding:12px}
@@ -173,7 +180,8 @@ color:#e8cb8d;padding:11px;border-radius:10px;font-size:12px
 
 <div class="notice">
 Forex tradicional pode diferir dos preços das corretoras.
-Este painel não opera ordens nem gera recomendações CALL/PUT.
+Este painel é experimental, não opera ordens e não garante resultados.
+Os sinais precisam ser testados antes de qualquer uso.
 </div>
 </section>
 
@@ -187,6 +195,32 @@ Este painel não opera ordens nem gera recomendações CALL/PUT.
 
 </main>
 
+<section class="panel" style="margin-top:14px">
+<div class="history-head">
+<h2>Histórico de sinais</h2>
+<button class="btn" id="clearHistory">Limpar histórico</button>
+</div>
+<div class="muted" id="historyCount">0 registros salvos</div>
+<div class="data">
+<table>
+<thead>
+<tr>
+<th>Data/hora</th>
+<th>Ativo</th>
+<th>Sinal</th>
+<th>EMA 9</th>
+<th>EMA 21</th>
+<th>RSI 14</th>
+</tr>
+</thead>
+<tbody id="signalHistory">
+<tr><td colspan="6">Nenhum sinal registrado.</td></tr>
+</tbody>
+</table>
+</div>
+<p class="muted">O histórico fica salvo neste navegador e neste dispositivo.</p>
+</section>
+
 <div class="muted" style="text-align:center;padding:18px">
 Binary AI Trader Universal • integração inicial de dados Forex
 </div>
@@ -194,6 +228,80 @@ Binary AI Trader Universal • integração inicial de dados Forex
 
 <script>
 const $ = id => document.getElementById(id);
+const HISTORY_KEY = 'binaryTraderHistory';
+
+function getHistory(){
+try{
+const saved = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+return Array.isArray(saved) ? saved : [];
+}catch{
+return [];
+}
+}
+
+function renderHistory(){
+const history = getHistory();
+const body = $('signalHistory');
+
+body.textContent = '';
+$('historyCount').textContent = history.length + ' registros salvos';
+
+if(history.length === 0){
+const tr = document.createElement('tr');
+const td = document.createElement('td');
+td.colSpan = 6;
+td.textContent = 'Nenhum sinal registrado.';
+tr.appendChild(td);
+body.appendChild(tr);
+return;
+}
+
+history.slice(0,20).forEach(item=>{
+const tr = document.createElement('tr');
+
+[
+item.date,
+item.symbol,
+item.signal,
+item.ema9,
+item.ema21,
+item.rsi14
+].forEach((value,index)=>{
+const td = document.createElement('td');
+td.textContent = value ?? '--';
+
+if(index === 2){
+td.className = 'history-signal ' +
+(item.signal === 'CALL' ? 'call' :
+item.signal === 'PUT' ? 'put' : 'wait');
+}
+
+tr.appendChild(td);
+});
+
+body.appendChild(tr);
+});
+}
+
+function saveSignal(symbol,data){
+const history = getHistory();
+
+history.unshift({
+date: new Date().toLocaleString('pt-BR'),
+symbol: symbol,
+signal: String(data.signal || 'AGUARDAR').toUpperCase(),
+ema9: data.indicators?.ema9 ?? '--',
+ema21: data.indicators?.ema21 ?? '--',
+rsi14: data.indicators?.rsi14 ?? '--'
+});
+
+localStorage.setItem(
+HISTORY_KEY,
+JSON.stringify(history.slice(0,100))
+);
+
+renderHistory();
+}
 
 async function health(){
 try{
@@ -286,6 +394,8 @@ $('indicators').textContent =
 $('signalTime').textContent =
 'Último candle: ' + d.lastAnalyzedCandle;
 
+saveSignal(sym,d);
+
 }catch(e){
 signal.textContent = 'AGUARDAR';
 signal.className = 'wait';
@@ -296,6 +406,14 @@ btn.textContent = 'Consultar sinal';
 btn.disabled = false;
 };
 
+$('clearHistory').onclick = ()=>{
+if(confirm('Tem certeza que deseja apagar todo o histórico?')){
+localStorage.removeItem(HISTORY_KEY);
+renderHistory();
+}
+};
+
+renderHistory();
 health();
 </script>
 </body>
