@@ -24,7 +24,8 @@ async function getCandles(symbol) {
   const url = new URL("https://api.twelvedata.com/time_series");
   url.searchParams.set("symbol", symbol);
   url.searchParams.set("interval", "1min");
-  url.searchParams.set("outputsize", "100");
+  url.searchParams.set("timezone", "America/Sao_Paulo");
+ url.searchParams.set("outputsize", "100");
   url.searchParams.set("apikey", API_KEY);
 
   const response = await fetch(url);
