@@ -8,7 +8,14 @@
 <div class="field"><label>Corretora (seleção do painel)</label><select id="broker"><option>Avalon</option><option>Quotex</option><option>Pocket Option</option><option>IQ Option</option><option>Polarium</option></select></div>
 <div class="field"><label>Ativo Forex</label><select id="symbol"><option value="EUR/USD">EUR/USD</option><option value="GBP/USD">GBP/USD</option><option value="USD/JPY">USD/JPY</option><option value="AUD/USD">AUD/USD</option><option value="EUR/GBP">EUR/GBP</option></select></div></div>
 <div class="brokers"><button class="broker active">Avalon</button><button class="broker">Quotex</button><button class="broker">Pocket Option</button><button class="broker">IQ Option</button><button class="broker">Polarium</button></div>
-<div class="signal"><span class="muted">SINAL ATUAL</span><strong>AGUARDAR</strong><span class="muted">Nenhum sinal operacional é emitido nesta versão.</span></div>
+<div class="signal">
+  <span class="muted">SINAL ATUAL</span>
+  <strong id="signalValue">AGUARDAR</strong>
+  <span class="muted" id="signalReason">Aguardando análise do mercado.</span>
+  <div class="muted" id="indicators">EMA 9: -- | EMA 21: -- | RSI 14: --</div>
+  <div class="muted" id="signalTime">Último candle: --</div>
+  <button class="btn primary" id="checkSignal">Consultar sinal</button>
+</div>
 <div class="btnrow"><button class="btn primary" id="load">Consultar candles de 1 minuto</button><span class="muted" id="result"></span></div>
 <div class="notice">Forex tradicional pode diferir dos preços das corretoras. Este painel não opera ordens nem gera recomendações CALL/PUT.</div></section>
 <section class="panel"><h2>Dados recebidos da Twelve Data</h2><div class="muted" id="summary">Aguardando consulta.</div><div class="data" id="table"><span class="muted">Os candles aparecerão aqui após a conexão.</span></div></section></main>
@@ -18,5 +25,32 @@ const $=id=>document.getElementById(id);
 async function health(){try{const r=await fetch('/api/health');const d=await r.json();$('status').textContent=d.apiKeyConfigured?'● Servidor e chave configurados':'● Servidor ativo — falta chave API';$('status').style.color=d.apiKeyConfigured?'#24d69a':'#ffca65'}catch{$('status').textContent='● Servidor não conectado'}}
 document.querySelectorAll('.broker').forEach(b=>b.onclick=()=>{document.querySelectorAll('.broker').forEach(x=>x.classList.toggle('active',x===b));$('broker').value=b.textContent});
 $('load').onclick=async()=>{const sym=$('symbol').value;$('result').textContent='Consultando...';try{const r=await fetch('/api/candles?symbol='+encodeURIComponent(sym)+'&interval=1min');const d=await r.json();if(!r.ok)throw Error(d.error||'Falha');$('summary').textContent=sym+' • candles de 1 minuto • '+d.values.length+' registros';let h='<table><thead><tr><th>Data/hora</th><th>Abert.</th><th>Máx.</th><th>Mín.</th><th>Fech.</th></tr></thead><tbody>';for(const v of d.values)h+=`<tr><td>${v.datetime}</td><td>${v.open}</td><td>${v.high}</td><td>${v.low}</td><td>${v.close}</td></tr>`;$('table').innerHTML=h+'</tbody></table>';$('result').textContent='Dados recebidos'}catch(e){$('result').textContent='Erro: '+e.message;$('table').textContent=e.message}};
-health();
+$('checkSignal').onclick = async () => {
+  const sym = $('symbol').value;
+  const btn = $('checkSignal');
+
+  btn.textContent = 'Analisando...';
+
+  try {
+    const r = await fetch('/api/signal?symbol=' + encodeURIComponent(sym));
+    const d = await r.json();
+
+    if (!r.ok) throw Error(d.error || 'Falha na análise');
+
+    $('signalValue').textContent = d.signal;
+    $('signalReason').textContent = d.reason;
+    $('indicators').textContent =
+      'EMA 9: ' + d.indicators.ema9 +
+      ' | EMA 21: ' + d.indicators.ema21 +
+      ' | RSI 14: ' + d.indicators.rsi14;
+    $('signalTime').textContent = 'Último candle: ' + d.lastAnalyzedCandle;
+
+  } catch (e) {
+    $('signalValue').textContent = 'AGUARDAR';
+    $('signalReason').textContent = 'Erro: ' + e.message;
+  }
+
+  btn.textContent = 'Consultar sinal';
+};
+  health();
 </script></body></html>
