@@ -13,6 +13,7 @@ const candleCache = new Map();
 const pendingRequests = new Map();
 
 app.get("/api/health", (_req, res) => {
+  res.set("Cache-Control", "no-store");
   res.json({
     ok: true,
     apiKeyConfigured: Boolean(API_KEY),
@@ -31,9 +32,9 @@ async function getCandles(symbol) {
 
   const cached = candleCache.get(symbol);
 
-  if (cached && Date.now() - cached.time < CACHE_TIME) {
+  if (cached && Date.now() - cached.fetchedAt < CACHE_TIME) {
     console.log("Usando candles do cache:", symbol);
-    return cached.values;
+    return cached;
   }
 
   if (pendingRequests.has(symbol)) {
@@ -56,11 +57,18 @@ async function getCandles(symbol) {
     if (
       !response.ok ||
       data.status === "error" ||
-      !Array.isArray(data.values)
+      !Array.isArray(data.values) ||
+      data.values.length < 2
     ) {
       throw new Error(data.message || "Twelve Data request failed.");
     }
 
+    // A Twelve Data normalmente entrega primeiro a vela mais recente.
+    // Guardamos essa informação para acompanhar possíveis atrasos.
+    const providerLatestCandle = data.values[0].datetime;
+
+    // Mantemos a exclusão da vela mais recente para evitar analisar
+    // uma vela que ainda possa estar em formação.
     const values = data.values.slice(1).map(v => ({
       datetime: v.datetime,
       open: Number(v.open),
@@ -69,14 +77,19 @@ async function getCandles(symbol) {
       close: Number(v.close)
     })).reverse();
 
-    candleCache.set(symbol, {
-      time: Date.now(),
-      values
-    });
+    const result = {
+      values,
+      providerLatestCandle,
+      fetchedAt: Date.now()
+    };
+
+    candleCache.set(symbol, result);
 
     console.log("Candles atualizados:", symbol);
+    console.log("Última vela recebida:", providerLatestCandle);
+    console.log("Última vela analisada:", values[values.length - 1].datetime);
 
-    return values;
+    return result;
   })();
 
   pendingRequests.set(symbol, request);
@@ -86,6 +99,25 @@ async function getCandles(symbol) {
   } finally {
     pendingRequests.delete(symbol);
   }
+}
+
+function getDataInfo(candleData) {
+  const lastAnalyzed = candleData.values[
+    candleData.values.length - 1
+  ];
+
+  return {
+    providerLatestCandle: candleData.providerLatestCandle,
+    lastAnalyzedCandle: lastAnalyzed
+      ? lastAnalyzed.datetime
+      : null,
+    fetchedAt: new Date(candleData.fetchedAt).toISOString(),
+    dataAgeSeconds: Math.max(
+      0,
+      Math.floor((Date.now() - candleData.fetchedAt) / 1000)
+    ),
+    cacheSeconds: CACHE_TIME / 1000
+  };
 }
 
 function calculateEMA(values, period) {
@@ -146,14 +178,15 @@ app.get("/api/candles", async (req, res) => {
       req.query.symbol || "EUR/USD"
     ).toUpperCase();
 
-    const values = await getCandles(symbol);
+    const candleData = await getCandles(symbol);
 
     res.set("Cache-Control", "no-store");
 
     res.json({
       symbol,
       interval: "1min",
-      values
+      values: candleData.values,
+      dataInfo: getDataInfo(candleData)
     });
 
   } catch (error) {
@@ -169,12 +202,14 @@ app.get("/api/signal", async (req, res) => {
       req.query.symbol || "EUR/USD"
     ).toUpperCase();
 
-    const candles = await getCandles(symbol);
+    const candleData = await getCandles(symbol);
+    const candles = candleData.values;
 
     if (candles.length < 30) {
       return res.status(422).json({
         signal: "AGUARDAR",
-        reason: "Insufficient data for analysis."
+        reason: "Insufficient data for analysis.",
+        dataInfo: getDataInfo(candleData)
       });
     }
 
@@ -222,10 +257,9 @@ app.get("/api/signal", async (req, res) => {
         rsi14: Number(rsi14.toFixed(2))
       },
 
-      lastAnalyzedCandle:
-        candles[candles.length - 1].datetime,
-
-      candlesAnalyzed: candles.length
+      lastAnalyzedCandle: candles[candles.length - 1].datetime,
+      candlesAnalyzed: candles.length,
+      dataInfo: getDataInfo(candleData)
     });
 
   } catch (error) {
