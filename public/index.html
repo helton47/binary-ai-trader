@@ -9,107 +9,62 @@
 
 <style>
 :root{
---bg:#050b16;
---line:#193452;
---blue:#168cff;
---txt:#eaf4ff;
---muted:#8ca4bf;
---amber:#ffca65
+--bg:#050b16;--line:#193452;--blue:#168cff;
+--txt:#eaf4ff;--muted:#8ca4bf;--amber:#ffca65
 }
 *{box-sizing:border-box}
 body{
 margin:0;
 background:radial-gradient(ellipse at 80% -10%,#102b50,transparent 38%),var(--bg);
-color:var(--txt);
-font:15px system-ui,Arial
+color:var(--txt);font:15px system-ui,Arial
 }
 .wrap{max-width:1050px;margin:auto;padding:18px}
-.top{
-display:flex;justify-content:space-between;align-items:center;
-gap:12px;flex-wrap:wrap;margin-bottom:16px
-}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
 .brand{display:flex;gap:12px;align-items:center}
-.logo{
-width:42px;height:42px;border-radius:12px;
-background:linear-gradient(135deg,var(--blue),#153a72);
-display:grid;place-items:center;font-weight:900
-}
+.logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--blue),#153a72);display:grid;place-items:center;font-weight:900}
 .brand h1{font-size:19px;margin:0}
 .brand p,.muted{font-size:12px;color:var(--muted)}
-.status{
-font-size:11px;color:var(--amber);
-border:1px solid #805c20;background:#382a13;
-padding:7px 10px;border-radius:30px
-}
-.grid{
-display:grid;grid-template-columns:1.2fr 1fr;gap:14px
-}
-.panel{
-background:linear-gradient(160deg,#0e1d32,#091424);
-border:1px solid var(--line);border-radius:16px;padding:16px
-}
+.status{font-size:11px;color:var(--amber);border:1px solid #805c20;background:#382a13;padding:7px 10px;border-radius:30px}
+.grid{display:grid;grid-template-columns:1.2fr 1fr;gap:14px}
+.panel{background:linear-gradient(160deg,#0e1d32,#091424);border:1px solid var(--line);border-radius:16px;padding:16px}
 .panel h2{font-size:15px;margin:0 0 12px}
 .fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.field label{
-display:block;color:var(--muted);font-size:11px;margin-bottom:5px
-}
-.field select{
-width:100%;background:#071326;border:1px solid #234364;
-border-radius:9px;padding:10px;color:var(--txt)
-}
-.brokers{
-display:grid;grid-template-columns:repeat(3,1fr);
-gap:7px;margin-top:12px
-}
-.broker,.btn{
-background:#102844;color:var(--txt);
-border:1px solid #28517a;padding:9px;border-radius:9px;cursor:pointer
-}
-.broker.active,.btn.primary{
-background:#0d62b6;border-color:#168cff
-}
-.signal{
-margin-top:14px;background:#0c2038;
-border:1px solid #24496e;border-radius:12px;padding:15px
-}
-.signal strong{
-font-size:26px;color:var(--amber);display:block
-}
+.field label{display:block;color:var(--muted);font-size:11px;margin-bottom:5px}
+.field select{width:100%;background:#071326;border:1px solid #234364;border-radius:9px;padding:10px;color:var(--txt)}
+.brokers{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:12px}
+.broker,.btn{background:#102844;color:var(--txt);border:1px solid #28517a;padding:9px;border-radius:9px;cursor:pointer}
+.broker.active,.btn.primary{background:#0d62b6;border-color:#168cff}
+.signal{margin-top:14px;background:#0c2038;border:1px solid #24496e;border-radius:12px;padding:15px}
+.signal strong{font-size:26px;color:var(--amber);display:block}
 .signal strong.call{color:#35d07f}
 .signal strong.put{color:#ff5b67}
 .signal strong.wait{color:#ffca65}
-.btnrow{
-display:flex;gap:8px;flex-wrap:wrap;margin-top:12px
-}
-.btn.primary{
-background:linear-gradient(135deg,#087de8,#1456a4)
-}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.btn.primary{background:linear-gradient(135deg,#087de8,#1456a4)}
 .btn:disabled{opacity:.65;cursor:wait}
-.data{
-margin-top:12px;background:#071629;
-border:1px solid #183653;border-radius:10px;
-padding:12px;overflow:auto
-}
+.data{margin-top:12px;background:#071629;border:1px solid #183653;border-radius:10px;padding:12px;overflow:auto}
 .data table{width:100%;border-collapse:collapse;font-size:12px}
-.data td,.data th{
-text-align:right;padding:6px;border-bottom:1px solid #183653
-}
+.data td,.data th{text-align:right;padding:6px;border-bottom:1px solid #183653}
 .data td:first-child,.data th:first-child{text-align:left}
-.notice{
-margin-top:12px;background:#241d11;border:1px solid #72541f;
-color:#e8cb8d;padding:11px;border-radius:10px;font-size:12px
-}
-.history-head{
-display:flex;justify-content:space-between;
-align-items:center;gap:10px;flex-wrap:wrap
-}
+.notice{margin-top:12px;background:#241d11;border:1px solid #72541f;color:#e8cb8d;padding:11px;border-radius:10px;font-size:12px}
+.history-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
 .history-signal.call{color:#35d07f;font-weight:bold}
 .history-signal.put{color:#ff5b67;font-weight:bold}
 .history-signal.wait{color:#ffca65;font-weight:bold}
-@media(max-width:760px){
-.grid{grid-template-columns:1fr}
-.wrap{padding:12px}
+
+.candle-times{
+margin-top:12px;padding:13px;background:#071629;
+border:1px solid #168cff;border-radius:10px
 }
+.candle-times h3{margin:0 0 10px;font-size:14px;color:#36d7ff}
+.time-item{
+display:flex;justify-content:space-between;gap:10px;
+padding:8px 0;border-bottom:1px solid #193452
+}
+.time-item:last-child{border-bottom:0}
+.time-item span{color:#8ca4bf;font-size:12px}
+.time-item strong{color:#35d07f;font-size:14px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}.wrap{padding:12px}}
 </style>
 </head>
 
@@ -170,6 +125,24 @@ align-items:center;gap:10px;flex-wrap:wrap
 <span class="muted" id="signalReason">Aguardando análise do mercado.</span>
 <div class="muted" id="indicators">EMA 9: -- | EMA 21: -- | RSI 14: --</div>
 <div class="muted" id="signalTime">Último candle: --</div>
+
+<div class="candle-times">
+<h3>HORÁRIOS DAS VELAS</h3>
+<div class="time-item">
+<span>Vela analisada</span>
+<strong id="analyzedTime">--:--</strong>
+</div>
+<div class="time-item">
+<span>Entrada de referência</span>
+<strong id="entryTime">--:--</strong>
+</div>
+<div class="time-item">
+<span>Expiração de referência (1 min)</span>
+<strong id="expiryTime">--:--</strong>
+</div>
+<p class="muted">Horários estimados com base nos candles Forex recebidos.</p>
+</div>
+
 <button class="btn primary" id="checkSignal">Consultar sinal</button>
 </div>
 
@@ -182,6 +155,7 @@ align-items:center;gap:10px;flex-wrap:wrap
 Forex tradicional pode diferir dos preços das corretoras.
 Este painel é experimental, não opera ordens e não garante resultados.
 Os sinais precisam ser testados antes de qualquer uso.
+Os horários de entrada e expiração são referências, não confirmação do relógio da corretora.
 </div>
 </section>
 
@@ -205,12 +179,8 @@ Os sinais precisam ser testados antes de qualquer uso.
 <table>
 <thead>
 <tr>
-<th>Data/hora</th>
-<th>Ativo</th>
-<th>Sinal</th>
-<th>EMA 9</th>
-<th>EMA 21</th>
-<th>RSI 14</th>
+<th>Data/hora</th><th>Ativo</th><th>Sinal</th>
+<th>EMA 9</th><th>EMA 21</th><th>RSI 14</th>
 </tr>
 </thead>
 <tbody id="signalHistory">
@@ -234,15 +204,12 @@ function getHistory(){
 try{
 const saved = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
 return Array.isArray(saved) ? saved : [];
-}catch{
-return [];
-}
+}catch{return []}
 }
 
 function renderHistory(){
 const history = getHistory();
 const body = $('signalHistory');
-
 body.textContent = '';
 $('historyCount').textContent = history.length + ' registros salvos';
 
@@ -258,63 +225,79 @@ return;
 
 history.slice(0,20).forEach(item=>{
 const tr = document.createElement('tr');
-
-[
-item.date,
-item.symbol,
-item.signal,
-item.ema9,
-item.ema21,
-item.rsi14
-].forEach((value,index)=>{
+[item.date,item.symbol,item.signal,item.ema9,item.ema21,item.rsi14].forEach((value,index)=>{
 const td = document.createElement('td');
 td.textContent = value ?? '--';
-
 if(index === 2){
 td.className = 'history-signal ' +
 (item.signal === 'CALL' ? 'call' :
 item.signal === 'PUT' ? 'put' : 'wait');
 }
-
 tr.appendChild(td);
 });
-
 body.appendChild(tr);
 });
 }
 
 function saveSignal(symbol,data){
 const history = getHistory();
-
 history.unshift({
-date: new Date().toLocaleString('pt-BR'),
-symbol: symbol,
-signal: String(data.signal || 'AGUARDAR').toUpperCase(),
-ema9: data.indicators?.ema9 ?? '--',
-ema21: data.indicators?.ema21 ?? '--',
-rsi14: data.indicators?.rsi14 ?? '--'
+date:new Date().toLocaleString('pt-BR'),
+symbol:symbol,
+signal:String(data.signal || 'AGUARDAR').toUpperCase(),
+ema9:data.indicators?.ema9 ?? '--',
+ema21:data.indicators?.ema21 ?? '--',
+rsi14:data.indicators?.rsi14 ?? '--'
 });
+localStorage.setItem(HISTORY_KEY,JSON.stringify(history.slice(0,100)));
+renderHistory();
+}
 
-localStorage.setItem(
-HISTORY_KEY,
-JSON.stringify(history.slice(0,100))
+function updateCandleTimes(datetime){
+const match = String(datetime || '').match(
+/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/
 );
 
-renderHistory();
+if(!match){
+$('analyzedTime').textContent = 'Indisponível';
+$('entryTime').textContent = '--:--';
+$('expiryTime').textContent = '--:--';
+return;
+}
+
+const [,year,month,day,hour,minute,second] = match;
+
+// Os horários recebidos pelo servidor são de São Paulo.
+const candle = new Date(
+Number(year),Number(month)-1,Number(day),
+Number(hour),Number(minute),Number(second)
+);
+
+const entry = new Date(candle.getTime()+60000);
+const expiry = new Date(candle.getTime()+120000);
+
+function formatTime(date){
+return date.toLocaleTimeString('pt-BR',{
+timeZone:'America/Sao_Paulo',
+hour:'2-digit',minute:'2-digit',second:'2-digit',
+hour12:false
+});
+}
+
+$('analyzedTime').textContent = formatTime(candle);
+$('entryTime').textContent = formatTime(entry);
+$('expiryTime').textContent = formatTime(expiry);
 }
 
 async function health(){
 try{
 const r = await fetch('/api/health');
 const d = await r.json();
-
 $('status').textContent = d.apiKeyConfigured
 ? '● Servidor e chave configurados'
 : '● Servidor ativo — falta chave API';
-
 $('status').style.color = d.apiKeyConfigured
 ? '#24d69a' : '#ffca65';
-
 }catch{
 $('status').textContent = '● Servidor não conectado';
 }
@@ -332,24 +315,17 @@ $('broker').value = b.textContent;
 $('load').onclick = async ()=>{
 const sym = $('symbol').value;
 $('result').textContent = 'Consultando...';
-
 try{
 const r = await fetch('/api/candles?symbol=' + encodeURIComponent(sym) + '&interval=1min');
 const d = await r.json();
-
 if(!r.ok) throw Error(d.error || 'Falha');
-
 $('summary').textContent = sym + ' • candles de 1 minuto • ' + d.values.length + ' registros';
-
 let h = '<table><thead><tr><th>Data/hora</th><th>Abert.</th><th>Máx.</th><th>Mín.</th><th>Fech.</th></tr></thead><tbody>';
-
 for(const v of d.values){
 h += `<tr><td>${v.datetime}</td><td>${v.open}</td><td>${v.high}</td><td>${v.low}</td><td>${v.close}</td></tr>`;
 }
-
 $('table').innerHTML = h + '</tbody></table>';
 $('result').textContent = 'Dados recebidos';
-
 }catch(e){
 $('result').textContent = 'Erro: ' + e.message;
 $('table').textContent = e.message;
@@ -360,40 +336,33 @@ $('checkSignal').onclick = async ()=>{
 const sym = $('symbol').value;
 const btn = $('checkSignal');
 const signal = $('signalValue');
-
 btn.textContent = 'Analisando...';
 btn.disabled = true;
 
 try{
 const r = await fetch('/api/signal?symbol=' + encodeURIComponent(sym));
 const d = await r.json();
-
 if(!r.ok) throw Error(d.error || 'Falha na análise');
 
 const value = String(d.signal || 'AGUARDAR').toUpperCase();
-
 signal.textContent = value;
 signal.className = '';
 
-if(value === 'CALL'){
-signal.classList.add('call');
-}else if(value === 'PUT'){
-signal.classList.add('put');
-}else{
+if(value === 'CALL') signal.classList.add('call');
+else if(value === 'PUT') signal.classList.add('put');
+else{
 signal.textContent = 'AGUARDAR';
 signal.classList.add('wait');
 }
 
 $('signalReason').textContent = d.reason || 'Análise concluída.';
-
 $('indicators').textContent =
 'EMA 9: ' + d.indicators.ema9 +
 ' | EMA 21: ' + d.indicators.ema21 +
 ' | RSI 14: ' + d.indicators.rsi14;
 
-$('signalTime').textContent =
-'Último candle: ' + d.lastAnalyzedCandle;
-
+$('signalTime').textContent = 'Último candle: ' + d.lastAnalyzedCandle;
+updateCandleTimes(d.lastAnalyzedCandle);
 saveSignal(sym,d);
 
 }catch(e){
