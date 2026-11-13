@@ -12,33 +12,45 @@ const CACHE_TIME = 60 * 1000;
 const candleCache = new Map();
 const pendingRequests = new Map();
 
+const ALLOWED_SYMBOLS = new Set([
+  "EUR/USD",
+  "GBP/USD",
+  "USD/JPY",
+  "USD/CHF",
+  "AUD/USD",
+  "NZD/USD",
+  "USD/CAD",
+  "EUR/GBP",
+  "EUR/JPY",
+  "GBP/JPY"
+]);
+
 app.get("/api/health", (_req, res) => {
   res.set("Cache-Control", "no-store");
   res.json({
     ok: true,
     apiKeyConfigured: Boolean(API_KEY),
-    cacheSeconds: CACHE_TIME / 1000
+    cacheSeconds: CACHE_TIME / 1000,
+    supportedSymbols: [...ALLOWED_SYMBOLS]
   });
 });
 
 async function getCandles(symbol) {
   if (!API_KEY) {
-    throw new Error("Twelve Data API key not configured.");
+    throw new Error("A chave TWELVE_DATA_API_KEY não está configurada.");
   }
 
-  if (!/^[A-Z]{3}\/[A-Z]{3}$/.test(symbol)) {
-    throw new Error("Invalid currency pair.");
+  if (!ALLOWED_SYMBOLS.has(symbol)) {
+    throw new Error("Par de moedas não permitido.");
   }
 
   const cached = candleCache.get(symbol);
 
   if (cached && Date.now() - cached.fetchedAt < CACHE_TIME) {
-    console.log("Usando candles do cache:", symbol);
     return cached;
   }
 
   if (pendingRequests.has(symbol)) {
-    console.log("Reutilizando consulta em andamento:", symbol);
     return pendingRequests.get(symbol);
   }
 
@@ -58,17 +70,16 @@ async function getCandles(symbol) {
       !response.ok ||
       data.status === "error" ||
       !Array.isArray(data.values) ||
-      data.values.length < 2
+      data.values.length < 30
     ) {
-      throw new Error(data.message || "Twelve Data request failed.");
+      throw new Error(
+        data.message || "Não foi possível obter candles da Twelve Data."
+      );
     }
 
-    // A Twelve Data normalmente entrega primeiro a vela mais recente.
-    // Guardamos essa informação para acompanhar possíveis atrasos.
     const providerLatestCandle = data.values[0].datetime;
 
-    // Mantemos a exclusão da vela mais recente para evitar analisar
-    // uma vela que ainda possa estar em formação.
+    // Exclui o candle mais recente, que pode ainda estar aberto.
     const values = data.values.slice(1).map(v => ({
       datetime: v.datetime,
       open: Number(v.open),
@@ -77,6 +88,10 @@ async function getCandles(symbol) {
       close: Number(v.close)
     })).reverse();
 
+    if (values.some(c => !Number.isFinite(c.close))) {
+      throw new Error("A Twelve Data retornou candles com valores inválidos.");
+    }
+
     const result = {
       values,
       providerLatestCandle,
@@ -84,10 +99,6 @@ async function getCandles(symbol) {
     };
 
     candleCache.set(symbol, result);
-
-    console.log("Candles atualizados:", symbol);
-    console.log("Última vela recebida:", providerLatestCandle);
-    console.log("Última vela analisada:", values[values.length - 1].datetime);
 
     return result;
   })();
@@ -101,20 +112,16 @@ async function getCandles(symbol) {
   }
 }
 
-function getDataInfo(candleData) {
-  const lastAnalyzed = candleData.values[
-    candleData.values.length - 1
-  ];
+function dataInfo(data) {
+  const last = data.values[data.values.length - 1];
 
   return {
-    providerLatestCandle: candleData.providerLatestCandle,
-    lastAnalyzedCandle: lastAnalyzed
-      ? lastAnalyzed.datetime
-      : null,
-    fetchedAt: new Date(candleData.fetchedAt).toISOString(),
+    providerLatestCandle: data.providerLatestCandle,
+    lastAnalyzedCandle: last ? last.datetime : null,
+    fetchedAt: new Date(data.fetchedAt).toISOString(),
     dataAgeSeconds: Math.max(
       0,
-      Math.floor((Date.now() - candleData.fetchedAt) / 1000)
+      Math.floor((Date.now() - data.fetchedAt) / 1000)
     ),
     cacheSeconds: CACHE_TIME / 1000
   };
@@ -149,27 +156,45 @@ function calculateRSI(values, period = 14) {
     else losses -= change;
   }
 
-  let averageGain = gains / period;
-  let averageLoss = losses / period;
+  let avgGain = gains / period;
+  let avgLoss = losses / period;
 
   for (let i = period + 1; i < values.length; i++) {
     const change = values[i] - values[i - 1];
 
-    const gain = Math.max(change, 0);
-    const loss = Math.max(-change, 0);
+    avgGain = (
+      avgGain * (period - 1) + Math.max(change, 0)
+    ) / period;
 
-    averageGain =
-      (averageGain * (period - 1) + gain) / period;
-
-    averageLoss =
-      (averageLoss * (period - 1) + loss) / period;
+    avgLoss = (
+      avgLoss * (period - 1) + Math.max(-change, 0)
+    ) / period;
   }
 
-  if (averageLoss === 0) return 100;
+  if (avgLoss === 0) return 100;
 
-  const rs = averageGain / averageLoss;
+  const rs = avgGain / avgLoss;
 
-  return 100 - (100 / (1 + rs));
+  return 100 - 100 / (1 + rs);
+}
+
+// Exemplo: análise às 22:45:30,
+// entrada às 22:47 e expiração às 22:48.
+// É um horário-alvo experimental, não uma previsão garantida.
+function futureSchedule(now = Date.now()) {
+  const minuteStart = Math.floor(now / 60000) * 60000;
+  const entry = minuteStart + 2 * 60000;
+  const expiry = entry + 60000;
+
+  return {
+    analysisTime: new Date(now).toISOString(),
+    entryTime: new Date(entry).toISOString(),
+    expiryTime: new Date(expiry).toISOString(),
+    entryDelaySeconds: Math.max(
+      0,
+      Math.ceil((entry - now) / 1000)
+    )
+  };
 }
 
 app.get("/api/candles", async (req, res) => {
@@ -186,9 +211,8 @@ app.get("/api/candles", async (req, res) => {
       symbol,
       interval: "1min",
       values: candleData.values,
-      dataInfo: getDataInfo(candleData)
+      dataInfo: dataInfo(candleData)
     });
-
   } catch (error) {
     res.status(502).json({
       error: error.message
@@ -208,8 +232,9 @@ app.get("/api/signal", async (req, res) => {
     if (candles.length < 30) {
       return res.status(422).json({
         signal: "AGUARDAR",
-        reason: "Insufficient data for analysis.",
-        dataInfo: getDataInfo(candleData)
+        reason: "Dados insuficientes para análise.",
+        dataInfo: dataInfo(candleData),
+        schedule: futureSchedule()
       });
     }
 
@@ -219,28 +244,33 @@ app.get("/api/signal", async (req, res) => {
     const ema21 = calculateEMA(closes, 21);
     const rsi14 = calculateRSI(closes, 14);
 
-    const lastClose = closes[closes.length - 1];
+    const last = candles[candles.length - 1];
+    const previous = candles[candles.length - 2];
+
+    const momentum = last.close - previous.close;
 
     let signal = "AGUARDAR";
-    let reason = "Strategy conditions not confirmed.";
+    let reason = "Condições da estratégia experimental não confirmadas.";
 
+    // Regras técnicas iniciais, ainda não validadas.
     if (
       ema9 > ema21 &&
       rsi14 >= 52 &&
-      rsi14 <= 68 &&
-      lastClose > ema9
+      rsi14 <= 67 &&
+      last.close > ema9 &&
+      momentum > 0
     ) {
       signal = "CALL";
-      reason = "Uptrend conditions confirmed.";
-
+      reason = "Tendência e momentum de alta alinhados nos candles fechados.";
     } else if (
       ema9 < ema21 &&
-      rsi14 >= 32 &&
+      rsi14 >= 33 &&
       rsi14 <= 48 &&
-      lastClose < ema9
+      last.close < ema9 &&
+      momentum < 0
     ) {
       signal = "PUT";
-      reason = "Downtrend conditions confirmed.";
+      reason = "Tendência e momentum de baixa alinhados nos candles fechados.";
     }
 
     res.set("Cache-Control", "no-store");
@@ -257,9 +287,11 @@ app.get("/api/signal", async (req, res) => {
         rsi14: Number(rsi14.toFixed(2))
       },
 
-      lastAnalyzedCandle: candles[candles.length - 1].datetime,
+      lastAnalyzedCandle: last.datetime,
       candlesAnalyzed: candles.length,
-      dataInfo: getDataInfo(candleData)
+      schedule: futureSchedule(),
+      dataInfo: dataInfo(candleData),
+      experimental: true
     });
 
   } catch (error) {
@@ -271,7 +303,5 @@ app.get("/api/signal", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(
-    "Binary AI Trader running on port " + PORT
-  );
+  console.log("Binary AI Trader running on port " + PORT);
 });
