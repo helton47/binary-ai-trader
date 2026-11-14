@@ -33,6 +33,7 @@ select{width:100%;background:#071326;border:1px solid #234364;border-radius:9px;
 <h2>Mercado e corretora</h2>
 <div class="fields">
 <div class="field"><label>Corretora (referência visual)</label><select id="broker"><option>Avalon</option><option>Quotex</option><option>Pocket Option</option><option>IQ Option</option><option>Polarium</option></select></div>
+<div class="field"><label>Tipo de mercado</label><select id="marketType"><option value="open">Mercado aberto (Forex)</option><option value="otc">OTC</option></select></div>
 <div class="field"><label>Par de moedas</label><select id="symbol">
 <option>EUR/USD</option><option>GBP/USD</option><option>USD/JPY</option><option>USD/CHF</option><option>AUD/USD</option><option>NZD/USD</option><option>USD/CAD</option><option>EUR/GBP</option><option>EUR/JPY</option><option>GBP/JPY</option>
 </select></div></div>
@@ -44,7 +45,7 @@ select{width:100%;background:#071326;border:1px solid #234364;border-radius:9px;
 <div class="notice">Sinais experimentais, sem garantia de acerto. A entrada é manual e o horário é uma referência. Os dados Forex da Twelve Data não são cotações OTC nem necessariamente iguais às da Avalon. Teste somente em demonstração.</div>
 </section>
 
-<section class="panel"><div class="chart-head"><h2>Gráfico de velas M1</h2><span class="muted" id="chartStatus">Aguardando dados</span></div><div class="muted">Candles Forex • EMA 9 e EMA 21</div><div id="chart" class="chart"></div><div class="muted" id="dataInfo">O gráfico será carregado ao consultar o ativo.</div></section>
+<section class="panel"><div class="chart-head"><h2>Gráfico de velas M1</h2><span class="muted" id="chartStatus">Aguardando dados</span></div><div class="muted" id="marketNotice">Mercado analisado: Forex aberto • fonte Twelve Data</div><div id="chart" class="chart"></div><div class="muted" id="dataInfo">O gráfico será carregado ao consultar o ativo.</div></section>
 </main>
 
 <section class="panel chart-panel"><div class="chart-head"><h2>Últimos candles recebidos</h2><button class="btn" id="load">Atualizar gráfico e candles</button></div><div class="data" id="table"><span class="muted">Aguardando consulta.</span></div></section>
@@ -56,6 +57,8 @@ select{width:100%;background:#071326;border:1px solid #234364;border-radius:9px;
 <script>
 const $=id=>document.getElementById(id), HISTORY_KEY='binaryTraderHistory';
 let chart=null,candleSeries=null,ema9Series=null,ema21Series=null,lastLoadedSymbol='';
+let refreshTimer=null;
+const REFRESH_MS=65000;
 const fmtTime=iso=>iso?new Date(iso).toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}):'--:--';
 const fmtCandleTime=s=>{const [date,time]=s.split(' ');return Math.floor(new Date(date+'T'+time+'-03:00').getTime()/1000)};
 function initChart(){
@@ -82,6 +85,9 @@ function saveSignal(symbol,d){
 }
 async function health(){try{const r=await fetch('/api/health'),d=await r.json();$('status').textContent=d.apiKeyConfigured?'● Servidor e chave configurados':'● Falta configurar chave API';$('status').style.color=d.apiKeyConfigured?'#24d69a':'#ffca65'}catch{$('status').textContent='● Servidor não conectado'}}
 async function loadCandles(){
+ if($('marketType').value==='otc'){
+  $('chartStatus').textContent='OTC não conectado';$('dataInfo').textContent='Aguardando uma fonte de candles OTC da corretora selecionada. Nenhum dado Forex será apresentado como OTC.';$('table').textContent='Dados OTC indisponíveis.';return;
+ }
  const sym=$('symbol').value;$('chartStatus').textContent='Carregando '+sym+'...';
  try{
   const r=await fetch('/api/candles?symbol='+encodeURIComponent(sym)),d=await r.json();if(!r.ok)throw Error(d.error||'Falha ao carregar candles');
@@ -96,6 +102,9 @@ async function loadCandles(){
  }catch(e){$('chartStatus').textContent='Erro ao carregar';$('dataInfo').textContent=e.message;$('table').textContent=e.message}
 }
 async function checkSignal(){
+ if($('marketType').value==='otc'){
+  $('signalValue').textContent='AGUARDAR';$('signalValue').className='wait';$('signalReason').textContent='OTC ainda não está conectado para esta corretora. Nenhum sinal será gerado com dados Forex.';return;
+ }
  const sym=$('symbol').value,btn=$('checkSignal'),sig=$('signalValue');btn.disabled=true;btn.textContent='Analisando...';
  try{
   const r=await fetch('/api/signal?symbol='+encodeURIComponent(sym)),d=await r.json();if(!r.ok)throw Error(d.error||d.message||'Falha na análise');
@@ -108,9 +117,22 @@ async function checkSignal(){
  }catch(e){sig.textContent='AGUARDAR';sig.className='wait';$('signalReason').textContent='Erro: '+e.message}
  finally{btn.disabled=false;btn.textContent='Analisar e gerar sinal'}
 }
+function configureMarket(){
+ const otc=$('marketType').value==='otc';
+ $('marketNotice').textContent=otc?'OTC selecionado • fonte de dados ainda não conectada':'Mercado analisado: Forex aberto • fonte Twelve Data';
+ $('checkSignal').disabled=otc;$('load').disabled=otc;
+ $('checkSignal').textContent=otc?'OTC indisponível':'Analisar e gerar sinal';
+ if(otc){
+  $('signalValue').textContent='AGUARDAR';$('signalValue').className='wait';
+  $('signalReason').textContent='OTC selecionado: aguardando integração de dados reais da corretora.';
+  $('chartStatus').textContent='OTC não conectado';$('dataInfo').textContent='Não há candles OTC conectados. O painel não usará cotações Forex neste modo.';$('table').textContent='Dados OTC indisponíveis.';
+  if(candleSeries)candleSeries.setData([]);if(ema9Series)ema9Series.setData([]);if(ema21Series)ema21Series.setData([]);
+ } else {loadCandles();}
+}
+function startAutoRefresh(){if(refreshTimer)clearInterval(refreshTimer);refreshTimer=setInterval(()=>{if($('marketType').value==='open')loadCandles();},REFRESH_MS);}
 $('load').onclick=loadCandles;$('checkSignal').onclick=checkSignal;
-$('symbol').onchange=loadCandles;
+$('symbol').onchange=loadCandles;$('marketType').onchange=configureMarket;
 $('clearHistory').onclick=()=>{if(confirm('Tem certeza que deseja apagar todo o histórico?')){localStorage.removeItem(HISTORY_KEY);renderHistory()}};
-renderHistory();initChart();health();loadCandles();
+renderHistory();initChart();health();loadCandles();startAutoRefresh();
 </script>
 </body></html>
