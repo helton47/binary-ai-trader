@@ -79,8 +79,8 @@ async function getCandles(symbol) {
 
     const providerLatestCandle = data.values[0].datetime;
 
-    // Exclui o candle mais recente, que pode ainda estar aberto.
-    const values = data.values.slice(1).map(v => ({
+    // Mantém todos os candles para o gráfico, inclusive o mais recente recebido.
+    const chartValues = data.values.map(v => ({
       datetime: v.datetime,
       open: Number(v.open),
       high: Number(v.high),
@@ -88,12 +88,17 @@ async function getCandles(symbol) {
       close: Number(v.close)
     })).reverse();
 
-    if (values.some(c => !Number.isFinite(c.close))) {
+    // A estratégia continua analisando somente candles anteriores ao mais recente,
+    // que pode ainda estar em formação.
+    const values = chartValues.slice(0, -1);
+
+    if (chartValues.some(c => !Number.isFinite(c.close))) {
       throw new Error("A Twelve Data retornou candles com valores inválidos.");
     }
 
     const result = {
       values,
+      chartValues,
       providerLatestCandle,
       fetchedAt: Date.now()
     };
@@ -114,9 +119,11 @@ async function getCandles(symbol) {
 
 function dataInfo(data) {
   const last = data.values[data.values.length - 1];
+  const chartLast = data.chartValues[data.chartValues.length - 1];
 
   return {
     providerLatestCandle: data.providerLatestCandle,
+    latestChartCandle: chartLast ? chartLast.datetime : null,
     lastAnalyzedCandle: last ? last.datetime : null,
     fetchedAt: new Date(data.fetchedAt).toISOString(),
     dataAgeSeconds: Math.max(
@@ -210,7 +217,8 @@ app.get("/api/candles", async (req, res) => {
     res.json({
       symbol,
       interval: "1min",
-      values: candleData.values,
+      values: candleData.chartValues,
+      closedValues: candleData.values,
       dataInfo: dataInfo(candleData)
     });
   } catch (error) {
