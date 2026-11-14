@@ -45,7 +45,7 @@ select{width:100%;background:#071326;border:1px solid #234364;border-radius:9px;
 <div class="notice">Sinais experimentais, sem garantia de acerto. A entrada é manual e o horário é uma referência. Os dados Forex da Twelve Data não são cotações OTC nem necessariamente iguais às da Avalon. Teste somente em demonstração.</div>
 </section>
 
-<section class="panel"><div class="chart-head"><h2>Gráfico de velas M1</h2><span class="muted" id="chartStatus">Aguardando dados</span></div><div class="muted" id="marketNotice">Mercado analisado: Forex aberto • fonte Twelve Data</div><div class="chart-wrap"><div id="chart" class="chart"></div><div id="chartMessage" class="chart-message" hidden>OTC selecionado<br>O gráfico ficará disponível quando conectarmos uma fonte real de candles OTC da corretora.</div></div><div class="muted" id="dataInfo">O gráfico será carregado ao consultar o ativo.</div></section>
+<section class="panel"><div class="chart-head"><h2>Gráfico de velas M1</h2><span class="muted" id="chartStatus">Aguardando dados</span></div><div class="muted" id="marketNotice">Mercado analisado: Forex aberto • fonte Twelve Data</div><div class="muted" id="extraIndicators">ADX 14: -- | Bandas de Bollinger (20, 2): --</div><div class="chart-wrap"><div id="chart" class="chart"></div><div id="chartMessage" class="chart-message" hidden>OTC selecionado<br>O gráfico ficará disponível quando conectarmos uma fonte real de candles OTC da corretora.</div></div><div class="muted" id="dataInfo">O gráfico será carregado ao consultar o ativo.</div></section>
 </main>
 
 <section class="panel chart-panel"><div class="chart-head"><h2>Últimos candles recebidos</h2><button class="btn" id="load">Atualizar gráfico e candles</button></div><div class="data" id="table"><span class="muted">Aguardando consulta.</span></div></section>
@@ -56,7 +56,7 @@ select{width:100%;background:#071326;border:1px solid #234364;border-radius:9px;
 
 <script>
 const $=id=>document.getElementById(id), HISTORY_KEY='binaryTraderHistory';
-let chart=null,candleSeries=null,ema9Series=null,ema21Series=null,lastLoadedSymbol='';
+let chart=null,candleSeries=null,ema9Series=null,ema21Series=null,bbUpperSeries=null,bbMiddleSeries=null,bbLowerSeries=null,lastLoadedSymbol='';
 let refreshTimer=null;
 const REFRESH_MS=65000;
 const fmtTime=iso=>iso?new Date(iso).toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}):'--:--';
@@ -67,11 +67,44 @@ function initChart(){
  candleSeries=chart.addCandlestickSeries({upColor:'#20c982',downColor:'#ff5968',borderUpColor:'#20c982',borderDownColor:'#ff5968',wickUpColor:'#20c982',wickDownColor:'#ff5968'});
  ema9Series=chart.addLineSeries({color:'#36d7ff',lineWidth:2,priceLineVisible:false});
  ema21Series=chart.addLineSeries({color:'#ffca65',lineWidth:2,priceLineVisible:false});
+ bbUpperSeries=chart.addLineSeries({color:'#b48cff',lineWidth:1,priceLineVisible:false,lastValueVisible:false});
+ bbMiddleSeries=chart.addLineSeries({color:'#8b78b8',lineWidth:1,priceLineVisible:false,lastValueVisible:false});
+ bbLowerSeries=chart.addLineSeries({color:'#b48cff',lineWidth:1,priceLineVisible:false,lastValueVisible:false});
  new ResizeObserver(()=>chart.applyOptions({width:$('chart').clientWidth,height:$('chart').clientHeight})).observe($('chart'));
 }
 function emaSeries(candles,period){
  const k=2/(period+1);let ema=null;
  return candles.map((c,i)=>{if(i===period-1)ema=candles.slice(0,period).reduce((s,x)=>s+x.close,0)/period;else if(i>=period)ema=c.close*k+ema*(1-k);return ema===null?null:{time:fmtCandleTime(c.datetime),value:ema}}).filter(Boolean);
+}
+function bollingerSeries(candles,period=20,multiplier=2){
+ const upper=[],middle=[],lower=[];
+ for(let i=period-1;i<candles.length;i++){
+  const window=candles.slice(i-period+1,i+1),mean=window.reduce((sum,c)=>sum+c.close,0)/period;
+  const variance=window.reduce((sum,c)=>sum+Math.pow(c.close-mean,2),0)/period;
+  const deviation=Math.sqrt(variance),time=fmtCandleTime(candles[i].datetime);
+  upper.push({time,value:mean+multiplier*deviation});middle.push({time,value:mean});lower.push({time,value:mean-multiplier*deviation});
+ }
+ return {upper,middle,lower};
+}
+function calculateADX(candles,period=14){
+ if(candles.length<period*2+1)return null;
+ const trs=[],plusDM=[],minusDM=[];
+ for(let i=1;i<candles.length;i++){
+  const c=candles[i],p=candles[i-1],up=c.high-p.high,down=p.low-c.low;
+  trs.push(Math.max(c.high-c.low,Math.abs(c.high-p.close),Math.abs(c.low-p.close)));
+  plusDM.push(up>down&&up>0?up:0);minusDM.push(down>up&&down>0?down:0);
+ }
+ let tr=trs.slice(0,period).reduce((a,b)=>a+b,0),plus=plusDM.slice(0,period).reduce((a,b)=>a+b,0),minus=minusDM.slice(0,period).reduce((a,b)=>a+b,0);
+ const dx=[];
+ for(let i=period;i<trs.length;i++){
+  if(i>period-1){tr=tr-tr/period+trs[i];plus=plus-plus/period+plusDM[i];minus=minus-minus/period+minusDM[i];}
+  const pdi=tr?100*plus/tr:0,mdi=tr?100*minus/tr:0,den=pdi+mdi;
+  dx.push(den?100*Math.abs(pdi-mdi)/den:0);
+ }
+ if(dx.length<period)return null;
+ let adx=dx.slice(0,period).reduce((a,b)=>a+b,0)/period;
+ for(let i=period;i<dx.length;i++)adx=((adx*(period-1))+dx[i])/period;
+ return adx;
 }
 function getHistory(){try{const x=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');return Array.isArray(x)?x:[]}catch{return[]}}
 function renderHistory(){
@@ -93,7 +126,11 @@ async function loadCandles(){
   const r=await fetch('/api/candles?symbol='+encodeURIComponent(sym)),d=await r.json();if(!r.ok)throw Error(d.error||'Falha ao carregar candles');
   if(!d.values?.length)throw Error('Nenhum candle recebido');
   candleSeries.setData(d.values.map(c=>({time:fmtCandleTime(c.datetime),open:c.open,high:c.high,low:c.low,close:c.close})));
-  ema9Series.setData(emaSeries(d.closedValues||d.values,9));ema21Series.setData(emaSeries(d.closedValues||d.values,21));chart.timeScale().fitContent();
+  const analyzed=d.closedValues||d.values;
+  ema9Series.setData(emaSeries(analyzed,9));ema21Series.setData(emaSeries(analyzed,21));
+  const bb=bollingerSeries(analyzed,20,2);bbUpperSeries.setData(bb.upper);bbMiddleSeries.setData(bb.middle);bbLowerSeries.setData(bb.lower);
+  const adx=calculateADX(analyzed,14);$('extraIndicators').textContent='ADX 14: '+(adx===null?'dados insuficientes':adx.toFixed(2))+' | Bandas de Bollinger (20, 2): superior, média e inferior no gráfico';
+  chart.timeScale().fitContent();
   $('chartStatus').textContent=sym+' • '+d.values.length+' candles';
   $('dataInfo').textContent='Última vela no gráfico: '+(d.dataInfo.latestChartCandle||d.dataInfo.providerLatestCandle)+' • última analisada (fechada): '+d.dataInfo.lastAnalyzedCandle+' • cache: '+d.dataInfo.dataAgeSeconds+'s';
   let t='<table><thead><tr><th>Data/hora</th><th>Abert.</th><th>Máx.</th><th>Mín.</th><th>Fech.</th></tr></thead><tbody>';
@@ -127,7 +164,7 @@ function configureMarket(){
   $('signalValue').textContent='AGUARDAR';$('signalValue').className='wait';
   $('signalReason').textContent='OTC selecionado: aguardando integração de dados reais da corretora.';
   $('chartStatus').textContent='OTC não conectado';$('dataInfo').textContent='Não há candles OTC conectados. O painel não usará cotações Forex neste modo.';$('table').textContent='Dados OTC indisponíveis.';
-  if(candleSeries)candleSeries.setData([]);if(ema9Series)ema9Series.setData([]);if(ema21Series)ema21Series.setData([]);
+  if(candleSeries)candleSeries.setData([]);if(ema9Series)ema9Series.setData([]);if(ema21Series)ema21Series.setData([]);if(bbUpperSeries)bbUpperSeries.setData([]);if(bbMiddleSeries)bbMiddleSeries.setData([]);if(bbLowerSeries)bbLowerSeries.setData([]);$('extraIndicators').textContent='ADX 14 e Bandas de Bollinger: aguardando dados OTC reais.';
  } else {$('chartMessage').hidden=true;loadCandles();}
 }
 function startAutoRefresh(){if(refreshTimer)clearInterval(refreshTimer);refreshTimer=setInterval(()=>{if($('marketType').value==='open')loadCandles();},REFRESH_MS);}
